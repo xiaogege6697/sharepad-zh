@@ -1,0 +1,107 @@
+import CryptoKit
+@testable import SharePad
+import XCTest
+
+final class LicenseValidatorTests: XCTestCase {
+    private let privateKey = Curve25519.Signing.PrivateKey()
+
+    private var validator: LicenseValidator {
+        LicenseValidator(
+            publicKeyBase64: privateKey.publicKey.rawRepresentation.base64EncodedString()
+        )
+    }
+
+    private func key(for email: String) throws -> String {
+        let message = Data(LicenseValidator.normalize(email).utf8)
+        let signature = try privateKey.signature(for: message)
+        return signature.base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
+    }
+
+    func testValidKeyMatchesEmail() throws {
+        XCTAssertTrue(try validator.isValid(
+            key: key(for: "buyer@example.com"),
+            email: "buyer@example.com"
+        ))
+    }
+
+    func testEmailIsNormalizedBeforeChecking() throws {
+        XCTAssertTrue(try validator.isValid(
+            key: key(for: "buyer@example.com"),
+            email: "  Buyer@Example.COM\n"
+        ))
+    }
+
+    func testKeyWhitespaceIsTolerated() throws {
+        XCTAssertTrue(try validator.isValid(
+            key: " \(key(for: "buyer@example.com")) \n",
+            email: "buyer@example.com"
+        ))
+    }
+
+    func testWrongEmailFails() throws {
+        XCTAssertFalse(try validator.isValid(
+            key: key(for: "buyer@example.com"),
+            email: "other@example.com"
+        ))
+    }
+
+    func testTamperedKeyFails() throws {
+        let original = try key(for: "buyer@example.com")
+        let replacement: Character = original.first == "A" ? "B" : "A"
+        let tampered = String(replacement) + original.dropFirst()
+        XCTAssertFalse(validator.isValid(key: tampered, email: "buyer@example.com"))
+    }
+
+    func testGarbageKeyFails() {
+        XCTAssertFalse(validator.isValid(key: "not-a-key!!", email: "buyer@example.com"))
+    }
+
+    func testCheckReturnsValidForMatchingKey() throws {
+        let result = try validator.check(
+            key: key(for: "buyer@example.com"), email: "buyer@example.com"
+        )
+        XCTAssertEqual(result, .valid)
+    }
+
+    func testCheckReturnsMalformedForIncompleteKey() {
+        let result = validator.check(key: "not-a-key!!", email: "buyer@example.com")
+        XCTAssertEqual(result, .malformedKey)
+    }
+
+    func testCheckReturnsMalformedForTruncatedKey() throws {
+        let truncated = try String(key(for: "buyer@example.com").dropLast(12))
+        XCTAssertEqual(validator.check(key: truncated, email: "buyer@example.com"), .malformedKey)
+    }
+
+    func testCheckReturnsMismatchForWrongEmail() throws {
+        let result = try validator.check(
+            key: key(for: "buyer@example.com"), email: "other@example.com"
+        )
+        XCTAssertEqual(result, .mismatch)
+    }
+
+    func testBadPublicKeyRejectsEverythingAndIsNotConfigured() throws {
+        let broken = LicenseValidator(publicKeyBase64: "garbage")
+        XCTAssertFalse(broken.isConfigured)
+        let signedKey = try key(for: "a@b.c")
+        XCTAssertFalse(broken.isValid(key: signedKey, email: "a@b.c"))
+    }
+
+    func testProductionKeyIsConfigured() {
+        XCTAssertTrue(LicenseValidator.production.isConfigured)
+    }
+
+    // Pins the embedded public key to a real key minted by the live worker's
+    // private signing key. testProductionKeyIsConfigured only proves the embedded
+    // key is well-formed, not that it PAIRS with the worker — a mismatch shipped
+    // once and rejected every real licence. This catches that class of bug offline.
+    func testProductionKeyMatchesWorkerSignature() {
+        let email = "pairing-check@sharepad.co"
+        let workerKey = "YahgYgZ6fYgl4MsWJpRwtJWdcL6fmEzbk9yFoCmxJpe2DFae-VvsGcq0OLPS5_"
+            + "Pfbzcm-VHR7oS1z-kdQ70XCA"
+        XCTAssertTrue(LicenseValidator.production.isValid(key: workerKey, email: email))
+    }
+}

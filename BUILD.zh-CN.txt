@@ -1,0 +1,23 @@
+SharePad 中文改进版：对应源码与构建说明
+
+普通使用直接安装外层的 SharePad.app，不需要打开此目录。
+本目录对应固化版 2026.09.28 / 应用版本 1.2.0-local-zh。
+Sources、Tests、project.yml、local-build/build-local.py 与固化版文件逐字一致。
+上游：https://github.com/jonyardley/SharePad
+上游基线提交：b92dd65890ecefc43ffbd252cd03664691e5a310
+原作者：Jon Yardley。许可：GNU GPL version 3，全文见 LICENSE。
+
+本地修改于 2026-09-26 完成：中文界面；LOCAL_BUILD 本地无使用时限并关闭 Sparkle 更新；原生窗口及重开行为；Retina 显示倍率同步。2026-09-28 固化。
+2026-10-23 仅增加分发说明、源码构建资源模板及 prepare-bundle.py；不改变应用或原有 Swift 源码。修改版非官方发行版。
+
+在 Apple 芯片 Mac 上构建
+需要 Python 3 和可编译此源码的 Apple Swift 工具链。此版本在 Swift 6.3.1、Swift 6 模式下编译通过；普通使用不需要这些开发工具。
+1. 在终端进入本目录。
+2. 运行：python3 prepare-bundle.py
+3. 运行：python3 local-build/build-local.py
+产物位于本目录 local-build/SharePad.app，使用本地 ad hoc 签名，不会覆盖“应用程序”中的现用版本。
+prepare-bundle.py 只建立独立应用骨架；如输出已存在会退出，不覆盖已有产物。bundle-template 提供固定版配置、图标与许可证，不含预编译主程序。原构建脚本从 Sources 下全部 Swift 源文件重新生成主程序并签名。
+本地构建只用系统框架，不需下载 Sparkle；不要把 project.yml 的官方发行配置误作本地中文构建命令。
+测试目录是上游逻辑测试资料；XCTest 需相应开发环境，商业试用及 Sparkle 测试不适用 LOCAL_BUILD 分支。
+
+你可以按 GPLv3 使用、修改和再分发。再分发时保留许可证、版权与修改说明，并提供对应完整源码和必要构建材料。本软件按 GPLv3 约定不提供保证。

@@ -1,0 +1,15 @@
+# Local build outputs; keep the build script tracked.
+local-build/SharePad.app/
+.DS_Store
+__pycache__/
+*.pyc
+.build/
+DerivedData/
+*.xcodeproj/
+*.xcuserstate
+xcuserdata/
+*.p12
+*.p8
+*.pem
+*.key
+.env
